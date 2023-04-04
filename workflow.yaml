@@ -1,0 +1,40 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: movie-recommendation-workflow-
+spec:
+  entrypoint: main
+  templates:
+    - name: main
+      steps:
+          - - name: workflow1
+              template: data-collection
+          - - name: workflow2
+              template: movie-recommend
+              arguments:
+                artifacts:
+                  - name: movies_data
+                    from: "{{steps.workflow1.outputs.artifacts.movies_data}}"
+                parameters:
+                  - name: genre
+                    value: "Thriller"
+    - name: data-collection
+      container:
+        image: localhost:5000/data-collection-image:latest
+        command: ["python3"]
+        args: ["data_collection/collect_data.py"]
+      outputs:
+        artifacts:
+          - name: movies_data
+            path: /tmp/movies_data.csv
+    - name: movie-recommend
+      inputs:
+        artifacts:
+          - name: movies_data
+            path: /tmp/movies_data.csv
+        parameters:
+          - name: genre
+      container:
+          image: localhost:5000/movies-recommendation-image:latest
+          command: ["python3"]
+          args: ["movie_recommendation/recommend.py", "{{inputs.parameters.genre}}"]
